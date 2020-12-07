@@ -2,3 +2,4 @@ numpy==1.19.3
 h5py
 matplotlib
 opencv-python
+tensorflow
