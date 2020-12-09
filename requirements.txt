@@ -3,3 +3,6 @@ h5py
 matplotlib
 opencv-python
 tensorflow
+nbconvert
+pandas
+scikit-learn
