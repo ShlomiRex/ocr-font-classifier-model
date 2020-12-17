@@ -2,3 +2,5 @@ font_recognition_train_set/
 venv/
 .idea/
 .vscode/
+*.ipynb
+.ipynb_checkpoints/*
