@@ -6,3 +6,4 @@ tensorflow
 nbconvert
 pandas
 scikit-learn
+keras
