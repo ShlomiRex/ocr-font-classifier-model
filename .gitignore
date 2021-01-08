@@ -4,3 +4,4 @@ venv/
 .vscode/
 *.ipynb
 .ipynb_checkpoints/*
+*.h5
