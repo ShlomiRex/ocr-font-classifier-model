@@ -5,3 +5,5 @@ opencv-python
 tensorflow
 tensorflow-gpu
 keras
+
+jupyternotify
