@@ -6,7 +6,7 @@ import h5py
 from matplotlib import pyplot as plt
 import cv2
 import numpy as np
-import seaborn as sn
+#import seaborn as sn
 import pandas as pd
 import math
 import random
@@ -63,6 +63,7 @@ def normalize(img, low=0, high=1):
 
 
 # func: Extract data from image name return json
+# Note: this function is modified version from the training file. (doesn't get font)
 def extract_data(db, img_name: str):
     """
     Process the image and returned processed result.
@@ -90,7 +91,7 @@ def extract_data(db, img_name: str):
     }
     """
     img = db['data'][img_name][:]                 # The image.
-    font = db['data'][img_name].attrs['font']     # Contains list of fonts.
+    #font = db['data'][img_name].attrs['font']     # Contains list of fonts.
     txt = db['data'][img_name].attrs['txt']       # Contains list of words.
     # Contains list of bb for words.
     charBB = db['data'][img_name].attrs['charBB']
@@ -104,7 +105,7 @@ def extract_data(db, img_name: str):
     # Process word
     for word in txt:
         # Convert bytes to string
-        word_font = font[char_index_accumulator].decode()
+        #word_font = font[char_index_accumulator].decode()
         chars = []
 
         word_bb = wordBB[:, :, word_index]
@@ -113,7 +114,7 @@ def extract_data(db, img_name: str):
         # Process chars
         for char_index in range(len(word)):
             char = chr(word[char_index])
-            char_font = font[char_index_accumulator].decode()
+            #char_font = font[char_index_accumulator].decode()
             char_bb = charBB[:, :, char_index_accumulator]
 
             # assert char_font == word_font # Double check that the pre-processed image is indeed 1 font per word, and each char is same font as word.
@@ -122,7 +123,7 @@ def extract_data(db, img_name: str):
 
             chars.append({
                 "char": char,
-                "font": char_font,
+                "font": None,
                 "crop": crop_char,
                 "bb": char_bb
             })
@@ -131,7 +132,7 @@ def extract_data(db, img_name: str):
 
         words.append({
             "word": word.decode(),
-            "font": word_font,
+            "font": None,
             "chars": chars,
             "bb": word_bb,
             "crop": word_crop,
@@ -146,18 +147,30 @@ def extract_data(db, img_name: str):
     }
 
 
-# func: Predict fonts from raw database
+# func: Predict fonts from raw database (images, and bounding boxes)
 def predict_raw_h5_set(h5_path):
 	"""
 	A customer will use this function for each set of images he wants to predict.
-	h5_path - h5 database path
+	h5_path - h5 database path (images, and bounding boxes)
 	"""
 	# Read from db
 	db = h5py.File(h5_path, "r")
 	im_names = list(db["data"].keys())
-	num_of_images = len(im_names)
-	print(f"Number of images: {num_of_images}")
 
+	num_of_images = len(im_names)
+	print(f"Number of images in set: {num_of_images}")
+	images_for_prediction = []
+	
+	for img_name in im_names:
+		json = extract_data(db, img_name)
+		for word in json["words"]:
+			for char in word["chars"]:
+				crop = char["crop"]
+				images_for_prediction.append(crop)
+
+	print(f"Number of images for prediction: {len(images_for_prediction)}")
+	
+		
 
 
 # Load model
@@ -169,5 +182,6 @@ model.summary()
 # TODO: Create prediction function that gets raw images (3 channels, diffirent sizes) and crop them, and predict on them
 # model.pred
 # plot_samples(X_val, Y_predicted)
-predictions = get_predictions(model, X_val[0:10])
-print(predictions)
+predict_raw_h5_set("validation_set/SynthText_val.h5")
+# predictions = get_predictions(model, X_val[0:10])
+# print(predictions)
