@@ -1,5 +1,5 @@
 numpy==1.19.3
-h5py
+h5py==2.10.0
 matplotlib
 opencv-python
 tensorflow
