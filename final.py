@@ -4,6 +4,7 @@ import h5py
 from matplotlib import pyplot as plt
 import cv2
 import numpy as np
+from tensorflow.python.keras.backend import dropout
 import seaborn as sn
 import pandas as pd
 import math
@@ -27,8 +28,9 @@ FONTS = ['Skylark', 'Ubuntu Mono', 'Sweet Puppy']
 AVG_CHAR_WIDTH = 28
 AVG_CHAR_HEIGHT = 49
 
-train_filename = "font_recognition_train_set/SynthText.h5"
-val_filename = "validation_set/SynthText_val.h5"
+train_filename = "train/SynthText.h5" # Original set
+train_filename2 = "train/train.h5" # 18.1.2021 new training set
+val_filename = "validation/SynthText_val.h5"
 
 
 
@@ -375,16 +377,24 @@ def get_predictions(model, X):
 
 
 
-# Training set
+# Training set (original training set)
 x_train = []
 y_train = []
 populate(train_filename, x_train, y_train)
+
+
+# Additional training set (18.1.2021)
+populate(train_filename2, x_train, y_train)
+
+
 print(f"x_train length: {len(x_train)} y_train length: {len(y_train)}")
 
-print("Will now display images from training set...")
+
+#TODO: Show/hide
+#print("Will now display images from training set...")
 #plot_image(train_filename, 10) # plot original image
 #plot_samples(x_train, y_train, low=520, high=550) # plot processed training images
-#plt.show() #TODO: Show/hide
+#plt.show() 
 
 
 
@@ -402,10 +412,12 @@ y_val = [] #Labels
 populate(val_filename, x_val, y_val, _noisy=False) #Validation is without noise
 print(f"x_val length: {len(x_val)} y_val length: {len(y_val)}")
 
-print("Will now display images from validation set...")
+
+#TODO: Show/hide
+#print("Will now display images from validation set...")
 #plot_image(val_filename, 519)
 #plot_samples(x_val, y_val)
-#plt.show()  #TODO: Show/hide
+#plt.show() 
 
 
 
@@ -428,14 +440,16 @@ model = tf.keras.models.Sequential(
         layers.MaxPooling2D(pool_size=(2, 2)),
         layers.Flatten(),
         layers.Dense(1024, activation='relu'),
+		layers.Dropout(0.1),
         layers.Dense(1024, activation='relu'),
+		layers.Dropout(0.1),
         layers.Dense(3, activation="softmax"),
     ]
 )
 
 #OPTIMIZERS = ["SGD", "adam", "adadelta", "adagrad"]
 #optimizer = keras.optimizers.Adam(learning_rate=.000085)
-optimizer = keras.optimizers.Adamax(learning_rate=.000085)
+optimizer = keras.optimizers.Adamax(learning_rate=.00004)
 model.compile(optimizer=optimizer,
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
@@ -462,7 +476,7 @@ print("Y train shape: ", Y_train.shape)
 print("X val shape: ", X_val.shape)
 print("Y val shape: ", Y_val.shape)
 
-epoch = 15 #TODO: Change to 50 in final version
+epoch = 50 #TODO: Change to 50 in final version
 history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=epoch) 
 
 
@@ -498,9 +512,9 @@ plt.show()
 
 
 # Evaluate
-print("Evaluate on test data")
+print("Evaluate on train data")
 results = model.evaluate(X_train, Y_train, batch_size=128)
-print("test loss, test acc:", results)
+print("train loss, train acc:", results)
 
 print("Evaluate on validation data")
 results = model.evaluate(X_val, Y_val, batch_size=128)
@@ -609,7 +623,7 @@ model.save("saved_model.h5")
 
 # A customer will have the model (.h5 file) and this is the code he will need to execute for predictions or evaluation.
 
-
+"""
 # Load model
 model = None
 model = keras.models.load_model("saved_model.h5")
@@ -631,3 +645,4 @@ print("test loss, test acc:", results)
 print("Evaluate on validation data")
 results = model.evaluate(X_val, Y_val, batch_size=128)
 print("val loss, val acc:", results)
+"""
