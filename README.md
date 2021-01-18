@@ -7,7 +7,7 @@
 * Download training, validation and test files:
   * train file #1: `SynthText.h5`: https://drive.google.com/file/d/1h5yzTRLFu_1cVkYPOs98RuEPB3Rdc5T-/view
   * train file #2: `train.h5`: https://drive.google.com/file/d/10pRYujKeJ-vtkFY7aaPZVKKAeVR-OuNr/view
-  * validation file: `SynthText_val.h5`: 
+  * validation file: `SynthText_val.h5`: https://drive.google.com/file/d/1K2EABjhUEpy79wQf4Nsepmb7Ag3DQN3g/view
   * test file: `test.h5`: https://drive.google.com/file/d/1s5QqcBGDk8Bm1WrA00JCQHqaFyCqie4H/view
   
 * Put the files in correct folders
