@@ -258,6 +258,9 @@ def noisy(image, noise_type="random"):
 
 
 # func: Process image and label and append to set (training, validation)
+# Ubuntu Mono = index 0
+# Skylark = index 1
+# Sweet Puppy = index 2
 def append_to_set(X, Y, x, y, _noisy=True):
     """
     Append (x,y) sample to (X,Y) arrays. Checking correct font (y) and shape of image (x).

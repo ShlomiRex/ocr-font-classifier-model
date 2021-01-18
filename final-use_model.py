@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import pandas as pd
 from tensorflow import keras
+import csv
 
 
 # Re-use functions
@@ -47,14 +48,6 @@ def crop_affine(img, bb):
     return crop
 
 
-# func: Normalize function
-def normalize(img, low=0, high=1):
-    """
-    Normalize image to range [low, high] from any range. Note: fast algorithm.
-    """
-    return np.interp(img, [np.min(img), np.max(img)], [low, high])
-
-
 # func: Extract data from image name return json
 # Note: this function is modified version from the training file. (doesn't get font)
 def extract_data(db, img_name: str):
@@ -84,7 +77,7 @@ def extract_data(db, img_name: str):
     }
     """
     img = db['data'][img_name][:]                 # The image.
-    #font = db['data'][img_name].attrs['font']     # Contains list of fonts.
+    font = db['data'][img_name].attrs['font']     # Contains list of fonts. # TODO: Remove in production
     txt = db['data'][img_name].attrs['txt']       # Contains list of words.
     # Contains list of bb for words.
     charBB = db['data'][img_name].attrs['charBB']
@@ -98,7 +91,7 @@ def extract_data(db, img_name: str):
     # Process word
     for word in txt:
         # Convert bytes to string
-        #word_font = font[char_index_accumulator].decode()
+        # word_font = font[char_index_accumulator].decode()
         chars = []
 
         word_bb = wordBB[:, :, word_index]
@@ -107,7 +100,7 @@ def extract_data(db, img_name: str):
         # Process chars
         for char_index in range(len(word)):
             char = chr(word[char_index])
-            #char_font = font[char_index_accumulator].decode()
+            char_font = font[char_index_accumulator].decode() # TODO: Remove for production
             char_bb = charBB[:, :, char_index_accumulator]
 
             # assert char_font == word_font # Double check that the pre-processed image is indeed 1 font per word, and each char is same font as word.
@@ -117,7 +110,7 @@ def extract_data(db, img_name: str):
             chars.append({
                 "char": char,
                 "font": None,
-                "crop": crop_char,
+                "crop": crop_char,  #TODO: Remove in production (to None)
                 "bb": char_bb
             })
 
@@ -140,41 +133,152 @@ def extract_data(db, img_name: str):
     }
 
 
-# func: Predict fonts from raw database (images, and bounding boxes)
-def predict_raw_h5_set(h5_path):
+# func:
+def populate_to_predict(filename, lst):
 	"""
-	A customer will use this function for each set of images he wants to predict.
-	h5_path - h5 database path (images, and bounding boxes)
+	filename - h5 file to read from
 	"""
 	# Read from db
-	db = h5py.File(h5_path, "r")
+	db = h5py.File(filename, "r")
 	im_names = list(db["data"].keys())
-
-	num_of_images = len(im_names)
-	print(f"Number of images in set: {num_of_images}")
-	images_for_prediction = []
-	
 	for img_name in im_names:
-		json = extract_data(db, img_name)
-		for word in json["words"]:
+		res = extract_data(db, img_name)
+		for word in res["words"]:
 			for char in word["chars"]:
-				crop = char["crop"]
-				images_for_prediction.append(crop)
+				char_crop = char["crop"] # image
+				char_str = char["char"] # english character for the cropped image
+				font = char["font"] #TODO: Remove for production
+				# To gray
+				char_crop = cv2.cvtColor(char_crop, cv2.COLOR_BGR2GRAY)
 
-	print(f"Number of images for prediction: {len(images_for_prediction)}")
-	
-		
+				# Resize
+				char_crop = cv2.resize(char_crop, (AVG_CHAR_WIDTH, AVG_CHAR_HEIGHT))
+
+
+				# There are some images with defect bounding boxes (image: hubble_22.jpg)
+				if char_crop.shape[0] == 0 or char_crop.shape[1] == 0:
+					word_str = word["word"]
+					print(f"Invalid crop at image: {img_name}, word: {word_str}, char: {char_str}")
+				else:
+					lst.append({
+						"image_name": img_name,
+						"char": char_str,
+						"char_crop": char_crop
+					})
+
+
 
 
 # Load model
+
 model = None
 model = keras.models.load_model("saved_model.h5")
 model.summary()
 
-# Now customer can use this model to predict images.
-# TODO: Create prediction function that gets raw images (3 channels, diffirent sizes) and crop them, and predict on them
-# model.pred
-# plot_samples(X_val, Y_predicted)
-predict_raw_h5_set("validation/SynthText_val.h5")
+
+# Pre-calculated average width, height of all cropped train data
+AVG_CHAR_WIDTH = 28
+AVG_CHAR_HEIGHT = 49
+
+train_filename = "train/SynthText.h5" # Original set
+train_filename2 = "train/train.h5" # 18.1.2021 new training set
+val_filename = "validation/SynthText_val.h5"
+
+
+
+"""
+# Read validation set
+x_val = [] #Images
+y_val = [] #Labels
+populate(val_filename, x_val, y_val, _noisy=False) #Validation is without noise
+print(f"x_val length: {len(x_val)} y_val length: {len(y_val)}")
+X_val = np.array(x_val)
+X_val = X_val.reshape(X_val.shape[0], X_val.shape[1], X_val.shape[2], 1)
+Y_val = np.array(y_val)
+"""
+
+
+
+# predict
+to_predict = []
+populate_to_predict(val_filename, to_predict)
+print("Number of images to predict: ", len(to_predict))
+
+images = np.array([x["char_crop"] for x in to_predict])
+images = images.reshape(images.shape[0], images.shape[1], images.shape[2], 1)
+p = model.predict_classes(images)
+
+rows = []
+with open("out.csv", "w", newline='') as csvfile:
+	csvwriter = csv.writer(csvfile, delimiter=',')
+	csvwriter.writerow(["", "image", "char", "Skylark", "Sweet Puppy", "Ubuntu Mono"])
+	c_sky = 0
+	c_sweet = 0
+	c_ubuntu = 0
+
+	for i in range(len(to_predict)):
+		x = to_predict[i]
+		font = p[i]
+		x["font_predicted"] = font
+		image_name = x["image_name"]
+		char = x["char"]
+		#char_crop = x["char_crop"]
+		#print(f"Image: {image_name} Char: {char} Font: {font}")
+		fonts = [0, 0, 0] # in csv order
+		# In my model:
+		# Ubuntu Mono = index 0
+		# Skylark = index 1
+		# Sweet Puppy = index 2
+
+		if font == 0:
+			# Ubuntu Mono
+			fonts[2] = 1
+			c_ubuntu += 1
+		elif font == 1:
+			# Skylark
+			fonts[0] = 1
+			c_sky += 1
+		else:
+			# Sweet Puppy
+			fonts[1] = 1
+			c_sweet += 1
+
+		row = [str(i), image_name, char, str(fonts[0]), str(fonts[1]), str(fonts[2])]
+		rows.append(row)
+		csvwriter.writerow(row)
+
+print(f"Total : {c_sky} {c_sweet} {c_ubuntu} ")
+
+
+# check result
+
+with open("validation/char_font_preds.csv", "r") as predicion_csv_validation:
+	reader = csv.reader(predicion_csv_validation, delimiter=',')
+	next(reader) # Skip first line
+	i = 0
+	c_sky = 0
+	c_sweet = 0
+	c_ubuntu = 0
+	for row in reader:
+		img_name = row[1]
+		char = row[2]
+		skylark = int(float(row[3]))
+		sweetpuppy = int(float(row[4]))
+		ubuntumono = int(float(row[5]))
+
+		if skylark == 1:
+			c_sky += 1
+		elif sweetpuppy == 1:
+			c_sweet += 1
+		else:
+			c_ubuntu += 1
+
+		i += 1
+
+print(f"Total : {c_sky} {c_sweet} {c_ubuntu} ")
+
+# predictions = get_predictions(model, X_val[0:10])
+# print(predictions)
+
 # predictions = get_predictions(model, X_val[0:10])
 # print(predictions)
