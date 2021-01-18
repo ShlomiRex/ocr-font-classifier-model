@@ -6,15 +6,8 @@ import h5py
 from matplotlib import pyplot as plt
 import cv2
 import numpy as np
-#import seaborn as sn
 import pandas as pd
-import math
-import random
-
-import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.python.client import device_lib
 
 
 # Re-use functions
@@ -182,6 +175,6 @@ model.summary()
 # TODO: Create prediction function that gets raw images (3 channels, diffirent sizes) and crop them, and predict on them
 # model.pred
 # plot_samples(X_val, Y_predicted)
-predict_raw_h5_set("validation_set/SynthText_val.h5")
+predict_raw_h5_set("validation/SynthText_val.h5")
 # predictions = get_predictions(model, X_val[0:10])
 # print(predictions)
