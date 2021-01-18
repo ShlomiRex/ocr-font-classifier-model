@@ -5,3 +5,4 @@ venv/
 *.ipynb
 .ipynb_checkpoints/*
 *.h5
+validation/char_font_preds.csv

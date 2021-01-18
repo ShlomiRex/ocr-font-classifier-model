@@ -6,4 +6,3 @@ tensorflow
 tensorflow-gpu
 keras
 
-jupyternotify
