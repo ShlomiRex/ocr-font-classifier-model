@@ -4,6 +4,7 @@
 * I recommend to use venv but you can also use global pip modules
 * Install all requirements in requirements.txt with `pip install -r requirements.txt`
   * Note that if you don't want to use GPU you don't have to install `tensorflow-gpu`
+  * Keras GPU installation tutorial: https://deeplizard.com/learn/video/IubEtS2JAiY
 
 # Project structure
 ![image info](images/project_structure.png)
