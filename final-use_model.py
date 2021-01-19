@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from tensorflow import keras
 import csv
+import os
+import datetime
 
 
 # Re-use functions
@@ -50,99 +52,106 @@ def crop_affine(img, bb):
 
 # func: Extract data from image name return json
 # Note: this function is modified version from the training file. (doesn't get font)
-def extract_data(db, img_name: str):
-    """
-    Process the image and returned processed result.
-    Parameter db is h5 database read from file.
-    Return a json in the following structure (as an example):
-    {
-        "img": <ndarray>,
-        "name": "test.png",
-        "words": [
-            {
-                "word": "the",
-                "font": "Ubuntu Mono",
-                "chars": [
-                    {
-                        "char": "t",
-                        "font": "Ubuntu Mono",
-                        "crop": <ndarray>,
-                        "bb": <ndarray>
-                    }, ...
-                ],
-                "bb": <ndarray>
-                "crop": <ndarray>
-            }, ...
-        ]
-    }
-    """
-    img = db['data'][img_name][:]                 # The image.
-    font = db['data'][img_name].attrs['font']     # Contains list of fonts. # TODO: Remove in production
-    txt = db['data'][img_name].attrs['txt']       # Contains list of words.
-    # Contains list of bb for words.
-    charBB = db['data'][img_name].attrs['charBB']
-    # Contain list of bb for chars.
-    wordBB = db['data'][img_name].attrs['wordBB']
+def extract_data(db, img_name: str, font_check=True):
+	"""
+	Process the image and returned processed result.
+	Parameter db is h5 database read from file.
+	Set font_check to False to not include font (for test set)
+	Return a json in the following structure (as an example):
+	{
+		"img": <ndarray>,
+		"name": "test.png",
+		"words": [
+			{
+				"word": "the",
+				"font": "Ubuntu Mono",
+				"chars": [
+					{
+						"char": "t",
+						"font": "Ubuntu Mono",
+						"crop": <ndarray>,
+						"bb": <ndarray>
+					}, ...
+				],
+				"bb": <ndarray>
+				"crop": <ndarray>
+			}, ...
+		]
+	}
+	"""
+	img = db['data'][img_name][:]                 # The image.
+	if font_check:
+		font = db['data'][img_name].attrs['font']     # Contains list of fonts. # TODO: Remove in production
+	txt = db['data'][img_name].attrs['txt']       # Contains list of words.
+	# Contains list of bb for words.
+	charBB = db['data'][img_name].attrs['charBB']
+	# Contain list of bb for chars.
+	wordBB = db['data'][img_name].attrs['wordBB']
 
-    words = []
-    char_index_accumulator = 0
-    word_index = 0  # Counter
+	words = []
+	char_index_accumulator = 0
+	word_index = 0  # Counter
 
-    # Process word
-    for word in txt:
-        # Convert bytes to string
-        # word_font = font[char_index_accumulator].decode()
-        chars = []
+	# Process word
+	for word in txt:
+		# Convert bytes to string
+		# word_font = font[char_index_accumulator].decode()
+		chars = []
 
-        word_bb = wordBB[:, :, word_index]
-        word_crop = crop_affine(img, word_bb)
+		word_bb = wordBB[:, :, word_index]
+		word_crop = crop_affine(img, word_bb)
 
-        # Process chars
-        for char_index in range(len(word)):
-            char = chr(word[char_index])
-            char_font = font[char_index_accumulator].decode() # TODO: Remove for production
-            char_bb = charBB[:, :, char_index_accumulator]
+		# Process chars
+		for char_index in range(len(word)):
+			char = chr(word[char_index])
+			if font_check:
+				char_font = font[char_index_accumulator].decode() # TODO: Remove for production
+			else:
+				char_font = None
+			char_bb = charBB[:, :, char_index_accumulator]
 
-            # assert char_font == word_font # Double check that the pre-processed image is indeed 1 font per word, and each char is same font as word.
+			# assert char_font == word_font # Double check that the pre-processed image is indeed 1 font per word, and each char is same font as word.
 
-            crop_char = crop_affine(img, char_bb)
+			crop_char = crop_affine(img, char_bb)
 
-            chars.append({
-                "char": char,
-                "font": None,
-                "crop": crop_char,  #TODO: Remove in production (to None)
-                "bb": char_bb
-            })
+			chars.append({
+				"char": char,
+				"font": char_font,
+				"crop": crop_char,  
+				"bb": char_bb
+			})
 
-            char_index_accumulator += 1
+			char_index_accumulator += 1
 
-        words.append({
-            "word": word.decode(),
-            "font": None,
-            "chars": chars,
-            "bb": word_bb,
-            "crop": word_crop,
-        })
-        word_index += 1
+		words.append({
+			"word": word.decode(),
+			"font": None,
+			"chars": chars,
+			"bb": word_bb,
+			"crop": word_crop,
+		})
+		word_index += 1
 
-    # Return result
-    return {
-        "img": img,
-        "name": img_name,
-        "words": words,
-    }
+	# Return result
+	return {
+		"img": img,
+		"name": img_name,
+		"words": words,
+	}
 
 
 # func:
-def populate_to_predict(filename, lst):
+def populate_to_predict(filename, lst, validation=True):
 	"""
 	filename - h5 file to read from
+	lst - python list to populate
+	validation - Set to False . Will not check font (in test set there is no font)
 	"""
 	# Read from db
 	db = h5py.File(filename, "r")
 	im_names = list(db["data"].keys())
 	for img_name in im_names:
-		res = extract_data(db, img_name)
+		res = extract_data(db, img_name, font_check=validation)
 		for word in res["words"]:
 			for char in word["chars"]:
 				char_crop = char["crop"] # image
@@ -180,38 +189,39 @@ model.summary()
 AVG_CHAR_WIDTH = 28
 AVG_CHAR_HEIGHT = 49
 
-train_filename = "train/SynthText.h5" # Original set
-train_filename2 = "train/train.h5" # 18.1.2021 new training set
-val_filename = "validation/SynthText_val.h5"
+#val_filename = "validation/SynthText_val.h5"
+test_filename = "test/test.h5"
 
 
-
-"""
-# Read validation set
-x_val = [] #Images
-y_val = [] #Labels
-populate(val_filename, x_val, y_val, _noisy=False) #Validation is without noise
-print(f"x_val length: {len(x_val)} y_val length: {len(y_val)}")
-X_val = np.array(x_val)
-X_val = X_val.reshape(X_val.shape[0], X_val.shape[1], X_val.shape[2], 1)
-Y_val = np.array(y_val)
-"""
 
 
 
 # predict
 to_predict = []
-populate_to_predict(val_filename, to_predict)
+print("Loading images...")
+populate_to_predict(test_filename, to_predict, validation=False)
 print("Number of images to predict: ", len(to_predict))
 
+print("Converting to numpy array...")
 images = np.array([x["char_crop"] for x in to_predict])
 images = images.reshape(images.shape[0], images.shape[1], images.shape[2], 1)
-p = model.predict_classes(images)
 
+now = datetime.datetime.now()
+print("Predicting now...")
+p = model.predict_classes(images)
+now2 = datetime.datetime.now()
+delta = (now2-now)
+print(f"Prediction time (seconds): {delta.seconds}")
+
+print("Writing to csv...")
 rows = []
-with open("out.csv", "w", newline='') as csvfile:
+outfile = "out.csv"
+with open(outfile, "w", newline='') as csvfile:
 	csvwriter = csv.writer(csvfile, delimiter=',')
+	# Write header
 	csvwriter.writerow(["", "image", "char", "Skylark", "Sweet Puppy", "Ubuntu Mono"])
+
+	# Count
 	c_sky = 0
 	c_sweet = 0
 	c_ubuntu = 0
@@ -224,7 +234,7 @@ with open("out.csv", "w", newline='') as csvfile:
 		char = x["char"]
 		#char_crop = x["char_crop"]
 		#print(f"Image: {image_name} Char: {char} Font: {font}")
-		fonts = [0, 0, 0] # in csv order
+		fonts = [0, 0, 0] # in csv order (first index = sky, second index = sweet, third index = ubuntu)
 		# In my model:
 		# Ubuntu Mono = index 0
 		# Skylark = index 1
@@ -247,9 +257,28 @@ with open("out.csv", "w", newline='') as csvfile:
 		rows.append(row)
 		csvwriter.writerow(row)
 
-print(f"Total : {c_sky} {c_sweet} {c_ubuntu} ")
+print("CSV complete")
+print(f"# Skylark: {c_sky}")
+print(f"# Sweet Puppy: {c_sweet}")
+print(f"# Ubuntu Mono: {c_ubuntu}")
+print(f"Total (sum): {c_sky+c_sweet+c_ubuntu}")
+
+print("CSV output is located at: " + os.path.abspath(outfile))
+
+print("Thanks for using my model :) I hope you have a great day!")
 
 
+
+
+
+
+
+
+
+
+
+
+"""
 # check result
 
 with open("validation/char_font_preds.csv", "r") as predicion_csv_validation:
@@ -276,9 +305,4 @@ with open("validation/char_font_preds.csv", "r") as predicion_csv_validation:
 		i += 1
 
 print(f"Total : {c_sky} {c_sweet} {c_ubuntu} ")
-
-# predictions = get_predictions(model, X_val[0:10])
-# print(predictions)
-
-# predictions = get_predictions(model, X_val[0:10])
-# print(predictions)
+"""
