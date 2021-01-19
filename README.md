@@ -40,3 +40,7 @@ Run `$ python final.py`
 ## Run the test prediction
 
 Run `$ python final-use_model.py`
+
+# Report / summary / documentation
+
+https://docs.google.com/document/d/1j0Q2lFW6pZKRNUjVaTEd-THx0V0PBokFPpUba-17pWA/edit?usp=sharing
