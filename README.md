@@ -3,9 +3,17 @@
 ![](images/raw_sample.png)
 !["Accuracy"](images/accuracy.png)
 !["Loss"](images/loss.png)
+
+## Confusion matrix
 !["Confusion matrix"](images/confusion.png)
-!["Training samples](images/training.png)
+
+## Image processing
 ![](images/example.png)
+
+## Training samples
+!["Training samples](images/training.png)
+
+
 
 Training: 1164 images, 38305 samples
 
