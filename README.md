@@ -1,3 +1,17 @@
+# Summary
+
+![](images/raw_sample.png)
+!["Accuracy"](images/accuracy.png)
+!["Loss"](images/loss.png)
+!["Confusion matrix"](images/confusion.png)
+!["Training samples](images/training.png)
+![](images/example.png)
+
+Training: 1164 images, 38305 samples
+
+
+Validation: 520 images, 8198 samples
+
 # Requirements
 
 * Python 3 (I used 3.7.9)
